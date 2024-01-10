@@ -180,18 +180,19 @@ void raylib_lua_sol_structs(sol::state& lua) {
     "right", &NPatchInfo::right,
     "bottom", &NPatchInfo::bottom,
     "layout", &NPatchInfo::layout);
-  lua.new_usertype<CharInfo>("CharInfo",
-    "value", &CharInfo::value,
-    "offsetX", &CharInfo::offsetX,
-    "offsetY", &CharInfo::offsetY,
-    "advanceX", &CharInfo::advanceX,
-    "image", &CharInfo::image);
+  lua.new_usertype<GlyphInfo>("GlyphInfo",
+    "value", &GlyphInfo::value,
+    "offsetX", &GlyphInfo::offsetX,
+    "offsetY", &GlyphInfo::offsetY,
+    "advanceX", &GlyphInfo::advanceX,
+    "image", &GlyphInfo::image);
   lua.new_usertype<Font>("Font",
     "baseSize", &Font::baseSize,
-    "charsCount", &Font::charsCount,
+    "glyphCount", &Font::glyphCount,
+    "glyphPadding", &Font::glyphPadding,
     "texture", &Font::texture,
     "recs", &Font::recs,
-    "chars", &Font::chars);
+    "glyphs", &Font::glyphs);
   lua.new_usertype<Camera3D>("Camera",
     sol::call_constructor, sol::factories(
       [](){
@@ -291,11 +292,11 @@ void raylib_lua_sol_structs(sol::state& lua) {
     ),
     "position", &Ray::position,
     "direction", &Ray::direction);
-  lua.new_usertype<RayHitInfo>("RayHitInfo",
-    "hit", &RayHitInfo::hit,
-    "distance", &RayHitInfo::distance,
-    "position", &RayHitInfo::position,
-    "normal", &RayHitInfo::normal);
+  lua.new_usertype<RayCollision>("RayCollision",
+    "hit", &RayCollision::hit,
+    "distance", &RayCollision::distance,
+    "point", &RayCollision::point,
+    "normal", &RayCollision::normal);
   lua.new_usertype<BoundingBox>("BoundingBox",
     sol::call_constructor, sol::factories(
       [](){
@@ -308,7 +309,7 @@ void raylib_lua_sol_structs(sol::state& lua) {
     "min", &BoundingBox::min,
     "max", &BoundingBox::max);
   lua.new_usertype<Wave>("Wave",
-    "sampleCount", &Wave::sampleCount,
+    "frameCount", &Wave::frameCount,
     "sampleRate", &Wave::sampleRate,
     "sampleSize", &Wave::sampleSize,
     "channels", &Wave::channels,
@@ -316,14 +317,15 @@ void raylib_lua_sol_structs(sol::state& lua) {
   lua.new_usertype<AudioStream>("AudioStream",
     "sampleRate", &AudioStream::sampleRate,
     "sampleSize", &AudioStream::sampleSize,
+    // "processor", &AudioStream::processor,
+    // "buffer", &AudioStream::buffer,
     "channels", &AudioStream::channels);
-    //"buffer", &AudioStream::buffer);
   lua.new_usertype<Sound>("Sound",
-    "sampleCount", &Sound::sampleCount,
+    "frameCount", &Sound::frameCount,
     "stream", &Sound::stream);
   lua.new_usertype<Music>("Music",
     "stream", &Music::stream,
-    "sampleCount", &Music::sampleCount,
+    "frameCount", &Music::frameCount,
     "looping", &Music::looping,
     "ctxType", &Music::ctxType,
     "ctxData", &Music::ctxData);
@@ -332,12 +334,21 @@ void raylib_lua_sol_structs(sol::state& lua) {
     "vResolution", &VrDeviceInfo::vResolution,
     "hScreenSize", &VrDeviceInfo::hScreenSize,
     "vScreenSize", &VrDeviceInfo::vScreenSize,
-    "vScreenCenter", &VrDeviceInfo::vScreenCenter,
     "eyeToScreenDistance", &VrDeviceInfo::eyeToScreenDistance,
     "lensSeparationDistance", &VrDeviceInfo::lensSeparationDistance,
     "interpupillaryDistance", &VrDeviceInfo::interpupillaryDistance,
     "lensDistortionValues", &VrDeviceInfo::lensDistortionValues,
     "chromaAbCorrection", &VrDeviceInfo::chromaAbCorrection);
+  lua.new_usertype<VrStereoConfig>("VrStereoConfig",
+    "projection", &VrStereoConfig::projection,
+    "viewOffset", &VrStereoConfig::viewOffset,
+    "leftLensCenter", &VrStereoConfig::leftLensCenter,
+    "rightLensCenter", &VrStereoConfig::rightLensCenter,
+    "leftScreenCenter", &VrStereoConfig::leftScreenCenter,
+    "rightScreenCenter", &VrStereoConfig::rightScreenCenter,
+    "scale", &VrStereoConfig::scale,
+    "scaleIn", &VrStereoConfig::scaleIn
+  );
 }
 
 #define RAYLIB_LUA_SOL_ADD_ENUM(x) \
@@ -356,6 +367,8 @@ void raylib_lua_sol_enums(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_ENUM(FLAG_WINDOW_ALWAYS_RUN);
   RAYLIB_LUA_SOL_ADD_ENUM(FLAG_WINDOW_TRANSPARENT);
   RAYLIB_LUA_SOL_ADD_ENUM(FLAG_WINDOW_HIGHDPI);
+  RAYLIB_LUA_SOL_ADD_ENUM(FLAG_WINDOW_MOUSE_PASSTHROUGH);
+  RAYLIB_LUA_SOL_ADD_ENUM(FLAG_BORDERLESS_WINDOWED_MODE);
   RAYLIB_LUA_SOL_ADD_ENUM(FLAG_MSAA_4X_HINT);
   RAYLIB_LUA_SOL_ADD_ENUM(FLAG_INTERLACED_HINT);
 
@@ -412,7 +425,10 @@ void raylib_lua_sol_enums(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_X);
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_Y);
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_Z);
-
+  RAYLIB_LUA_SOL_ADD_ENUM(KEY_LEFT_BRACKET);
+  RAYLIB_LUA_SOL_ADD_ENUM(KEY_BACKSLASH);
+  RAYLIB_LUA_SOL_ADD_ENUM(KEY_RIGHT_BRACKET);
+  RAYLIB_LUA_SOL_ADD_ENUM(KEY_GRAVE);
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_SPACE);
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_ESCAPE);
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_ENTER);
@@ -454,10 +470,6 @@ void raylib_lua_sol_enums(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_RIGHT_ALT);
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_RIGHT_SUPER);
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_KB_MENU);
-  RAYLIB_LUA_SOL_ADD_ENUM(KEY_LEFT_BRACKET);
-  RAYLIB_LUA_SOL_ADD_ENUM(KEY_BACKSLASH);
-  RAYLIB_LUA_SOL_ADD_ENUM(KEY_RIGHT_BRACKET);
-  RAYLIB_LUA_SOL_ADD_ENUM(KEY_GRAVE);
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_KP_0);
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_KP_1);
   RAYLIB_LUA_SOL_ADD_ENUM(KEY_KP_2);
@@ -483,9 +495,16 @@ void raylib_lua_sol_enums(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_LEFT_BUTTON);
   RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_RIGHT_BUTTON);
   RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_MIDDLE_BUTTON);
+  RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_BUTTON_LEFT);
+  RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_BUTTON_RIGHT);
+  RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_BUTTON_MIDDLE);
+  RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_BUTTON_SIDE);
+  RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_BUTTON_EXTRA);
+  RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_BUTTON_FORWARD);
+  RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_BUTTON_BACK);
 
   RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_CURSOR_DEFAULT);
-  RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_CURSOR_ARROW );
+  RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_CURSOR_ARROW);
   RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_CURSOR_IBEAM);
   RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_CURSOR_CROSSHAIR);
   RAYLIB_LUA_SOL_ADD_ENUM(MOUSE_CURSOR_POINTING_HAND);
@@ -501,21 +520,17 @@ void raylib_lua_sol_enums(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_LEFT_FACE_RIGHT);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_LEFT_FACE_DOWN);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_LEFT_FACE_LEFT);
-
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_RIGHT_FACE_UP);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_RIGHT_FACE_DOWN);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_RIGHT_FACE_LEFT);
-
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_LEFT_TRIGGER_1);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_LEFT_TRIGGER_2);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_RIGHT_TRIGGER_1);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_RIGHT_TRIGGER_2);
-
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_MIDDLE_LEFT);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_MIDDLE);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_MIDDLE_RIGHT);
-
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_LEFT_THUMB);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_BUTTON_RIGHT_THUMB);
 
@@ -525,6 +540,7 @@ void raylib_lua_sol_enums(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_AXIS_RIGHT_Y);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_AXIS_LEFT_TRIGGER);
   RAYLIB_LUA_SOL_ADD_ENUM(GAMEPAD_AXIS_RIGHT_TRIGGER);
+
   RAYLIB_LUA_SOL_ADD_ENUM(MATERIAL_MAP_ALBEDO);
   RAYLIB_LUA_SOL_ADD_ENUM(MATERIAL_MAP_METALNESS);
   RAYLIB_LUA_SOL_ADD_ENUM(MATERIAL_MAP_NORMAL);
@@ -532,10 +548,11 @@ void raylib_lua_sol_enums(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_ENUM(MATERIAL_MAP_OCCLUSION);
   RAYLIB_LUA_SOL_ADD_ENUM(MATERIAL_MAP_EMISSION);
   RAYLIB_LUA_SOL_ADD_ENUM(MATERIAL_MAP_HEIGHT);
-  RAYLIB_LUA_SOL_ADD_ENUM(MATERIAL_MAP_BRDG);
   RAYLIB_LUA_SOL_ADD_ENUM(MATERIAL_MAP_CUBEMAP);
   RAYLIB_LUA_SOL_ADD_ENUM(MATERIAL_MAP_IRRADIANCE);
   RAYLIB_LUA_SOL_ADD_ENUM(MATERIAL_MAP_PREFILTER);
+  RAYLIB_LUA_SOL_ADD_ENUM(MATERIAL_MAP_BRDF);
+
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_LOC_VERTEX_POSITION);
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_LOC_VERTEX_TEXCOORD01);
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_LOC_VERTEX_TEXCOORD02);
@@ -562,15 +579,21 @@ void raylib_lua_sol_enums(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_LOC_MAP_IRRADIANCE);
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_LOC_MAP_PREFILTER);
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_LOC_MAP_BRDF);
+
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_UNIFORM_FLOAT);
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_UNIFORM_VEC2);
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_UNIFORM_VEC3);
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_UNIFORM_VEC4);
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_UNIFORM_INT);
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_UNIFORM_IVEC2);
-  RAYLIB_LUA_SOL_ADD_ENUM(SHADER_UNIFORM_IVEC2);
+  RAYLIB_LUA_SOL_ADD_ENUM(SHADER_UNIFORM_IVEC3);
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_UNIFORM_IVEC4);
   RAYLIB_LUA_SOL_ADD_ENUM(SHADER_UNIFORM_SAMPLER2D);
+
+  RAYLIB_LUA_SOL_ADD_ENUM(SHADER_ATTRIB_FLOAT);
+  RAYLIB_LUA_SOL_ADD_ENUM(SHADER_ATTRIB_VEC2);
+  RAYLIB_LUA_SOL_ADD_ENUM(SHADER_ATTRIB_VEC3);
+  RAYLIB_LUA_SOL_ADD_ENUM(SHADER_ATTRIB_VEC4);
 
   RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_GRAYSCALE);
   RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA);
@@ -579,10 +602,12 @@ void raylib_lua_sol_enums(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_R5G5B5A1);
   RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_R4G4B4A4);
   RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
-  RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
   RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_R32);
   RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_R32G32B32);
   RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_R32G32B32A32);
+  RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_R16);
+  RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_R16G16B16);
+  RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_UNCOMPRESSED_R16G16B16A16);
   RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_COMPRESSED_DXT1_RGB);
   RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_COMPRESSED_DXT1_RGBA);
   RAYLIB_LUA_SOL_ADD_ENUM(PIXELFORMAT_COMPRESSED_DXT3_RGBA);
@@ -623,7 +648,9 @@ void raylib_lua_sol_enums(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_ENUM(BLEND_MULTIPLIED);
   RAYLIB_LUA_SOL_ADD_ENUM(BLEND_ADD_COLORS);
   RAYLIB_LUA_SOL_ADD_ENUM(BLEND_SUBTRACT_COLORS);
+  RAYLIB_LUA_SOL_ADD_ENUM(BLEND_ALPHA_PREMULTIPLY);
   RAYLIB_LUA_SOL_ADD_ENUM(BLEND_CUSTOM);
+  RAYLIB_LUA_SOL_ADD_ENUM(BLEND_CUSTOM_SEPARATE);
 
   RAYLIB_LUA_SOL_ADD_ENUM(GESTURE_NONE);
   RAYLIB_LUA_SOL_ADD_ENUM(GESTURE_TAP);
@@ -654,10 +681,16 @@ void raylib_lua_sol_enums(sol::state &lua) {
 #define RAYLIB_LUA_SOL_ADD_FUNCTION(x) \
   lua.set_function(#x, x)
 
+void example(int a) {
+  TraceLog(LOG_INFO, "AAA %d", a);
+}
+
 void raylib_lua_sol_functions(sol::state &lua) {
+  RAYLIB_LUA_SOL_ADD_FUNCTION(example);
+
   RAYLIB_LUA_SOL_ADD_FUNCTION(InitWindow);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(WindowShouldClose);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CloseWindow);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(WindowShouldClose);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsWindowReady);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsWindowFullscreen);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsWindowHidden);
@@ -669,18 +702,25 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetWindowState);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ClearWindowState);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ToggleFullscreen);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ToggleBorderlessWindowed);
   RAYLIB_LUA_SOL_ADD_FUNCTION(MaximizeWindow);
   RAYLIB_LUA_SOL_ADD_FUNCTION(MinimizeWindow);
   RAYLIB_LUA_SOL_ADD_FUNCTION(RestoreWindow);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetWindowIcon);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetWindowIcons);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetWindowTitle);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetWindowPosition);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetWindowMonitor);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetWindowMinSize);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetWindowMaxSize);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetWindowSize);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetWindowOpacity);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetWindowFocused);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetWindowHandle);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetScreenWidth);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetScreenHeight);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetRenderWidth);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetRenderHeight);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetMonitorCount);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetCurrentMonitor);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetMonitorPosition);
@@ -694,14 +734,14 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetMonitorName);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetClipboardText);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetClipboardText);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(EnableEventWaiting);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DisableEventWaiting);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ShowCursor);
   RAYLIB_LUA_SOL_ADD_FUNCTION(HideCursor);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsCursorHidden);
   RAYLIB_LUA_SOL_ADD_FUNCTION(EnableCursor);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DisableCursor);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsCursorOnScreen);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(ClearBackground);
   RAYLIB_LUA_SOL_ADD_FUNCTION(BeginDrawing);
   RAYLIB_LUA_SOL_ADD_FUNCTION(EndDrawing);
@@ -719,12 +759,11 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(EndScissorMode);
   RAYLIB_LUA_SOL_ADD_FUNCTION(BeginVrStereoMode);
   RAYLIB_LUA_SOL_ADD_FUNCTION(EndVrStereoMode);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadVrStereoConfig);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadVrStereoConfig);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadShader);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadShaderFromMemory);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsShaderReady);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetShaderLocation);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetShaderLocationAttrib);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetShaderValue);
@@ -732,78 +771,85 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetShaderValueMatrix);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetShaderValueTexture);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadShader);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetMouseRay);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetCameraMatrix);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetCameraMatrix2D);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetWorldToScreen);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetScreenToWorld2D);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetWorldToScreenEx);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetWorldToScreen2D);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetScreenToWorld2D);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetTargetFPS);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetFPS);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetFrameTime);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetTime);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetFPS);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SwapScreenBuffer);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(PollInputEvents);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(WaitTime);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetRandomSeed);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetRandomValue);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadRandomSequence);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadRandomSequence);
   RAYLIB_LUA_SOL_ADD_FUNCTION(TakeScreenshot);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetConfigFlags);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(OpenURL);
   RAYLIB_LUA_SOL_ADD_FUNCTION(TraceLog);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetTraceLogLevel);
   RAYLIB_LUA_SOL_ADD_FUNCTION(MemAlloc);
   RAYLIB_LUA_SOL_ADD_FUNCTION(MemRealloc);
   RAYLIB_LUA_SOL_ADD_FUNCTION(MemFree);
-
-//  RAYLIB_LUA_SOL_ADD_FUNCTION(SetTraceLogCallback);
-//  RAYLIB_LUA_SOL_ADD_FUNCTION(SetLoadFileDataCallback);
-//  RAYLIB_LUA_SOL_ADD_FUNCTION(SetSaveFileDataCallback);
-//  RAYLIB_LUA_SOL_ADD_FUNCTION(SetLoadFileTextCallback);
-//  RAYLIB_LUA_SOL_ADD_FUNCTION(SetSaveFileTextCallback);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetTraceLogCallback);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetLoadFileDataCallback);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetSaveFileDataCallback);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetLoadFileTextCallback);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetSaveFileTextCallback);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadFileData);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadFileData);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SaveFileData);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ExportDataAsCode);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadFileText);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadFileText);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SaveFileText);
   RAYLIB_LUA_SOL_ADD_FUNCTION(FileExists);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DirectoryExists);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsFileExtension);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetFileLength);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetFileExtension);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetFileName);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetFileNameWithoutExt);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetDirectoryPath);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetPrevDirectoryPath);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetWorkingDirectory);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetDirectoryFiles);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(ClearDirectoryFiles);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetApplicationDirectory);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ChangeDirectory);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsPathFile);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadDirectoryFiles);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadDirectoryFilesEx);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadDirectoryFiles);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsFileDropped);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetDroppedFiles);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(ClearDroppedFiles);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadDroppedFiles);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadDroppedFiles);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetFileModTime);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(CompressData);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DecompressData);
-
-  RAYLIB_LUA_SOL_ADD_FUNCTION(SaveStorageValue);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadStorageValue);
-
-  RAYLIB_LUA_SOL_ADD_FUNCTION(OpenURL);
-
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(EncodeDataBase64);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DecodeDataBase64);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadAutomationEventList);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadAutomationEventList);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ExportAutomationEventList);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetAutomationEventList);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetAutomationEventBaseFrame);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(StartAutomationEventRecording);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(StopAutomationEventRecording);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(PlayAutomationEvent);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsKeyPressed);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsKeyPressedRepeat);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsKeyDown);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsKeyReleased);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsKeyUp);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(SetExitKey);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetKeyPressed);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetCharPressed);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetExitKey);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsGamepadAvailable);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(IsGamepadName);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetGamepadName);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsGamepadButtonPressed);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsGamepadButtonDown);
@@ -813,7 +859,6 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetGamepadAxisCount);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetGamepadAxisMovement);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetGamepadMappings);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsMouseButtonPressed);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsMouseButtonDown);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsMouseButtonReleased);
@@ -821,50 +866,45 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetMouseX);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetMouseY);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetMousePosition);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetMouseDelta);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetMousePosition);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetMouseOffset);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetMouseScale);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetMouseWheelMove);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetMouseWheelMoveV);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetMouseCursor);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetTouchX);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetTouchY);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetTouchPosition);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetTouchPointId);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetTouchPointCount);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetGesturesEnabled);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsGestureDetected);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetGestureDetected);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetTouchPointsCount);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetGestureHoldDuration);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetGestureDragVector);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetGestureDragAngle);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetGesturePinchVector);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetGesturePinchAngle);
-
-  RAYLIB_LUA_SOL_ADD_FUNCTION(SetCameraMode);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UpdateCamera);
-
-  RAYLIB_LUA_SOL_ADD_FUNCTION(SetCameraPanControl);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(SetCameraAltControl);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(SetCameraSmoothZoomControl);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(SetCameraMoveControls);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UpdateCameraPro);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetShapesTexture);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetShapesTexture);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetShapesTextureRectangle);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawPixel);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawPixelV);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawLine);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawLineV);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawLineEx);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawLineBezier);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawLineBezierQuad);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawLineStrip);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawLineBezier);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCircle);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCircleSector);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCircleSectorLines);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCircleGradient);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCircleV);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCircleLines);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCircleLinesV);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawEllipse);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawEllipseLines);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawRing);
@@ -886,34 +926,54 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTriangleStrip);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawPoly);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawPolyLines);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawPolyLinesEx);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSplineLinear);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSplineBasis);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSplineCatmullRom);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSplineBezierQuadratic);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSplineBezierCubic);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSplineSegmentLinear);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSplineSegmentBasis);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSplineSegmentCatmullRom);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSplineSegmentBezierQuadratic);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSplineSegmentBezierCubic);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetSplinePointLinear);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetSplinePointBasis);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetSplinePointCatmullRom);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetSplinePointBezierQuad);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetSplinePointBezierCubic);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionRecs);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionCircles);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionCircleRec);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionPointRec);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionPointCircle);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionPointTriangle);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionPointPoly);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionLines);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionPointLine);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetCollisionRec);
-
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadImage);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadImageRaw);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadImageSvg);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadImageAnim);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadImageAnimFromMemory);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadImageFromMemory);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadImageFromTexture);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadImageFromScreen);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsImageReady);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadImage);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ExportImage);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ExportImageToMemory);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ExportImageAsCode);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(GenImageColor);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenImageGradientV);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenImageGradientH);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenImageGradientLinear);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GenImageGradientRadial);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenImageGradientSquare);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GenImageChecked);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GenImageWhiteNoise);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GenImagePerlinNoise);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GenImageCellular);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenImageText);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageCopy);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageFromImage);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageText);
@@ -925,6 +985,8 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageAlphaClear);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageAlphaMask);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageAlphaPremultiply);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ImageBlurGaussian);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ImageKernelConvolution);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageResize);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageResizeNN);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageResizeCanvas);
@@ -932,6 +994,7 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDither);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageFlipVertical);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageFlipHorizontal);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ImageRotate);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageRotateCW);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageRotateCCW);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageColorTint);
@@ -945,7 +1008,7 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadImageColors);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadImagePalette);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetImageAlphaBorder);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetImageColor);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageClearBackground);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawPixel);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawPixelV);
@@ -953,6 +1016,8 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawLineV);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawCircle);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawCircleV);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawCircleLines);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawCircleLinesV);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawRectangle);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawRectangleV);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawRectangleRec);
@@ -960,67 +1025,72 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDraw);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawText);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ImageDrawTextEx);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadTexture);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadTextureFromImage);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadTextureCubemap);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadRenderTexture);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsTextureReady);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadTexture);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsRenderTextureReady);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadRenderTexture);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UpdateTexture);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UpdateTextureRec);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetTextureData);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetScreenData);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(GenTextureMipmaps);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetTextureFilter);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetTextureWrap);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTexture);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextureV);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextureEx);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextureRec);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextureQuad);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextureTiled);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTexturePro);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextureNPatch);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTexturePoly);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(Fade);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ColorToInt);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ColorNormalize);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ColorFromNormalized);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ColorToHSV);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ColorFromHSV);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ColorTint);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ColorBrightness);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ColorContrast);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ColorAlpha);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ColorAlphaBlend);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetColor);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetPixelColor);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetPixelColor);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetPixelDataSize);
-
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetFontDefault);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadFont);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadFontEx);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadFontFromImage);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadFontFromMemory);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsFontReady);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadFontData);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GenImageFontAtlas);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadFontData);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadFont);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ExportFontAsCode);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawFPS);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawText);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextEx);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextRec);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextRecEx);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextPro);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextCodepoint);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawTextCodepoints);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetTextLineSpacing);
   RAYLIB_LUA_SOL_ADD_FUNCTION(MeasureText);
   RAYLIB_LUA_SOL_ADD_FUNCTION(MeasureTextEx);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetGlyphIndex);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetGlyphInfo);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetGlyphAtlasRec);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadUTF8);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadUTF8);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadCodepoints);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadCodepoints);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetCodepointCount);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetCodepoint);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetCodepointNext);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetCodepointPrevious);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(CodepointToUTF8);
   RAYLIB_LUA_SOL_ADD_FUNCTION(TextCopy);
   RAYLIB_LUA_SOL_ADD_FUNCTION(TextIsEqual);
   RAYLIB_LUA_SOL_ADD_FUNCTION(TextLength);
@@ -1036,14 +1106,7 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(TextToLower);
   RAYLIB_LUA_SOL_ADD_FUNCTION(TextToPascal);
   RAYLIB_LUA_SOL_ADD_FUNCTION(TextToInteger);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(TextToUtf8);
-
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetCodepoints);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetCodepointsCount);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetNextCodepoint);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(CodepointToUtf8);
-
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(TextToFloat);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawLine3D);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawPoint3D);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCircle3D);
@@ -1053,56 +1116,23 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCubeV);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCubeWires);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCubeWiresV);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCubeTexture);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSphere);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSphereEx);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawSphereWires);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCylinder);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCylinderEx);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCylinderWires);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCylinderWiresEx);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCapsule);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawCapsuleWires);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawPlane);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawRay);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawGrid);
-
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadModel);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadModelFromMesh);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsModelReady);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadModel);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadModelKeepMeshes);
-
-  RAYLIB_LUA_SOL_ADD_FUNCTION(UploadMesh);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawMesh);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawMeshInstanced);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadMesh);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(ExportMesh);
-
-  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadMaterials);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadMaterialDefault);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadMaterial);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(SetMaterialTexture);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(SetModelMeshMaterial);
-
-  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadModelAnimations);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(UpdateModelAnimation);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadModelAnimation);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadModelAnimations);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(IsModelAnimationValid);
-
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshDefault);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshPoly);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshPlane);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshCube);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshSphere);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshHemiSphere);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshCylinder);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshTorus);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshKnot);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshHeightmap);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshCubicmap);
-
-  RAYLIB_LUA_SOL_ADD_FUNCTION(MeshBoundingBox);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(MeshTangents);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(MeshBinormals);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetModelBoundingBox);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawModel);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawModelEx);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawModelWires);
@@ -1110,67 +1140,97 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawBoundingBox);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawBillboard);
   RAYLIB_LUA_SOL_ADD_FUNCTION(DrawBillboardRec);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawBillboardPro);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UploadMesh);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UpdateMeshBuffer);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadMesh);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawMesh);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DrawMeshInstanced);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetMeshBoundingBox);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshTangents);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ExportMesh);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(ExportMeshAsCode);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshPoly);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshPlane);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshCube);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshSphere);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshHemiSphere);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshCylinder);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshCone);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshTorus);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshKnot);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshHeightmap);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GenMeshCubicmap);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadMaterials);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadMaterialDefault);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsMaterialReady);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadMaterial);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetMaterialTexture);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetModelMeshMaterial);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadModelAnimations);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UpdateModelAnimation);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadModelAnimation);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadModelAnimations);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsModelAnimationValid);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionSpheres);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionBoxes);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionBoxSphere);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionRaySphere);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionRaySphereEx);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(CheckCollisionRayBox);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetCollisionRayMesh);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetCollisionRayModel);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetCollisionRayTriangle);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetCollisionRayGround);
-
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetRayCollisionSphere);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetRayCollisionBox);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetRayCollisionMesh);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetRayCollisionTriangle);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetRayCollisionQuad);
   RAYLIB_LUA_SOL_ADD_FUNCTION(InitAudioDevice);
   RAYLIB_LUA_SOL_ADD_FUNCTION(CloseAudioDevice);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsAudioDeviceReady);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetMasterVolume);
-
+  RAYLIB_LUA_SOL_ADD_FUNCTION(GetMasterVolume);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadWave);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadWaveFromMemory);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsWaveReady);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadSound);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadSoundFromWave);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadSoundAlias);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsSoundReady);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UpdateSound);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadWave);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadSound);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadSoundAlias);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ExportWave);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ExportWaveAsCode);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(PlaySound);
   RAYLIB_LUA_SOL_ADD_FUNCTION(StopSound);
   RAYLIB_LUA_SOL_ADD_FUNCTION(PauseSound);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ResumeSound);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(PlaySoundMulti);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(StopSoundMulti);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(GetSoundsPlaying);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsSoundPlaying);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetSoundVolume);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetSoundPitch);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(WaveFormat);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetSoundPan);
   RAYLIB_LUA_SOL_ADD_FUNCTION(WaveCopy);
   RAYLIB_LUA_SOL_ADD_FUNCTION(WaveCrop);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(WaveFormat);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadWaveSamples);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadWaveSamples);
-
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadMusicStream);
   RAYLIB_LUA_SOL_ADD_FUNCTION(LoadMusicStreamFromMemory);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsMusicReady);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadMusicStream);
   RAYLIB_LUA_SOL_ADD_FUNCTION(PlayMusicStream);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(IsMusicPlaying);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsMusicStreamPlaying);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UpdateMusicStream);
   RAYLIB_LUA_SOL_ADD_FUNCTION(StopMusicStream);
   RAYLIB_LUA_SOL_ADD_FUNCTION(PauseMusicStream);
   RAYLIB_LUA_SOL_ADD_FUNCTION(ResumeMusicStream);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SeekMusicStream);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetMusicVolume);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetMusicPitch);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetMusicPan);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetMusicTimeLength);
   RAYLIB_LUA_SOL_ADD_FUNCTION(GetMusicTimePlayed);
-
-  RAYLIB_LUA_SOL_ADD_FUNCTION(InitAudioStream);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(LoadAudioStream);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(IsAudioStreamReady);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(UnloadAudioStream);
   RAYLIB_LUA_SOL_ADD_FUNCTION(UpdateAudioStream);
-  RAYLIB_LUA_SOL_ADD_FUNCTION(CloseAudioStream);
   RAYLIB_LUA_SOL_ADD_FUNCTION(IsAudioStreamProcessed);
   RAYLIB_LUA_SOL_ADD_FUNCTION(PlayAudioStream);
   RAYLIB_LUA_SOL_ADD_FUNCTION(PauseAudioStream);
@@ -1179,7 +1239,13 @@ void raylib_lua_sol_functions(sol::state &lua) {
   RAYLIB_LUA_SOL_ADD_FUNCTION(StopAudioStream);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetAudioStreamVolume);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetAudioStreamPitch);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetAudioStreamPan);
   RAYLIB_LUA_SOL_ADD_FUNCTION(SetAudioStreamBufferSizeDefault);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(SetAudioStreamCallback);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(AttachAudioStreamProcessor);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DetachAudioStreamProcessor);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(AttachAudioMixedProcessor);
+  RAYLIB_LUA_SOL_ADD_FUNCTION(DetachAudioMixedProcessor);
 }
 
 void TraceLogWrapper(int messageType, const std::string& message) {
